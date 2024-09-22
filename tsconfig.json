@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "commonjs",
+    "rootDir": "./src_input",
+    "outDir": "./src",
+    "esModuleInterop": true,  
+    "forceConsistentCasingInFileNames": true, 
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src_input/**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
