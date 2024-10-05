@@ -1,24 +1,17 @@
 import dotenv from "dotenv";
-import cors from "cors";
-import bp from "body-parser";
-import cookieParser from "cookie-parser";
+import mongoose from "mongoose";
 
-import { io, app, server } from "./server";
+import { io, server } from "./server";
 
 dotenv.config();
 
-app.use(bp.json());
-app.use(bp.urlencoded({ extended: true }));
-app.use(cookieParser());
-app.use(cors({
-    origin: [String(process.env.FRONTEND_URL)],
-    credentials: true
-}));
+mongoose
+    .connect(String(process.env.DB_URL))
+    .then(() => server.listen(process.env.PORT, () => {
 
-io.on("connection", (socket: { id: string }) => {
-    console.log('Socket connected: %s', socket.id);
-})
+        io.on("connection", (socket: { id: string }) => {
+            console.log('Socket connected: %s', socket.id);
+        })
+        console.log('server running on port %s', process.env.PORT);
+    }));
 
-server.listen(process.env.PORT, () => {
-    console.log('server running on port %s', process.env.PORT);
-})
