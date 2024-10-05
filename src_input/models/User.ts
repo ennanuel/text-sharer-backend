@@ -4,8 +4,11 @@ const Schema = mongoose.Schema;
 
 
 const UserSchema = new Schema({
+    profileImage: {
+        type: String
+    },
     name: {
-        type: String,
+        type: String
     },
     username: {
         type: String,
@@ -17,7 +20,11 @@ const UserSchema = new Schema({
         required: [true, "User must have an email"],
         unique: true
     },
-    textSpaces: {
+    password: {
+        type: String,
+        require: [true, "User must have a password"]
+    },
+    favorites: {
         type: [
             {
                 type: Schema.Types.ObjectId,
@@ -28,4 +35,4 @@ const UserSchema = new Schema({
     }
 }, { timestamps: true });
 
-export default mongoose.model("User", UserSchema)
+export default mongoose.model("User", UserSchema);
