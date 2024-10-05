@@ -6,8 +6,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importDefault(require("mongoose"));
 const Schema = mongoose_1.default.Schema;
 const UserSchema = new Schema({
+    profileImage: {
+        type: String
+    },
     name: {
-        type: String,
+        type: String
     },
     username: {
         type: String,
@@ -19,7 +22,11 @@ const UserSchema = new Schema({
         required: [true, "User must have an email"],
         unique: true
     },
-    textSpaces: {
+    password: {
+        type: String,
+        require: [true, "User must have a password"]
+    },
+    favorites: {
         type: [
             {
                 type: Schema.Types.ObjectId,

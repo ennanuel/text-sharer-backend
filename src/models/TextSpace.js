@@ -10,7 +10,7 @@ const TextSpaceSchema = new Schema({
         type: String,
         required: [true, "Text space must have a title"]
     },
-    description: {
+    desc: {
         type: String
     },
     content: {
@@ -20,6 +20,10 @@ const TextSpaceSchema = new Schema({
     links: {
         type: [String],
         default: []
+    },
+    likes: {
+        type: Number,
+        default: 0
     },
     views: {
         type: Number,
