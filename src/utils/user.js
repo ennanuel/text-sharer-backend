@@ -149,10 +149,10 @@ class CreateUser {
                         this.validateName();
                         continue;
                     case "email":
-                        this.validateEmail();
+                        yield this.validateEmail();
                         continue;
                     case "username":
-                        this.validateUsername();
+                        yield this.validateUsername();
                         continue;
                     case "password":
                         this.validatePassword();

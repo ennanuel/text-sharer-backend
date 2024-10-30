@@ -27,11 +27,13 @@ export const authenticate: RequestHandler = async (req, res, next) => {
 };
 
 export const checkToken: RequestHandler = async (req, res) => {
-    return res.status(204).json();
+    return res.status(200).json({
+        userId: (req as ModifiedRequest).auth.id
+    });
 }
 
 function createUserToken(user: { _id: string; isAdmin?: boolean; }): { token: string; cookieOptions: CookieOptions; } {
-    const token = jwt.sign({ id: user._id, isAdmin: Boolean(user?.isAdmin) }, String(process.env.JWT_SEC_KEY), { expiresIn: MAX_AGE });
+    const token = jwt.sign({ id: user._id, isAdmin: Boolean(user?.isAdmin) }, String(process.env.JWT_SECRET_KEY), { expiresIn: MAX_AGE });
     const cookieOptions: CookieOptions = { httpOnly: true, secure: true, sameSite: 'none', maxAge: MAX_AGE * 1000};
     return { token, cookieOptions };
 };

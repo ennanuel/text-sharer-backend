@@ -33,7 +33,7 @@ export class CreateTextSpace {
         this.content = values?.content || "";
         this.secured = values?.secured || false;
         this.password = values?.secured ? values.password || "" : null;
-        this.owner = values?.owner || "";
+        this.owner = values?.owner || null;
         this.links = getURLLinksInText(values?.content || "");
     }
 
@@ -488,7 +488,15 @@ export async function getSpacesOfOtherUsers(
         const { limit, page, offset, sort } = getFetchOptions(options);
 
         const textSpaces = await TextSpace
-            .find({ owner: { $ne: userId } }, { password: 0 })
+            .find(
+                {
+                    $or: [
+                        { owner: { $ne: userId } },
+                        { owner: null }
+                    ]
+                },
+                { password: 0 }
+            )
             .sort(sort)
             .limit(limit)
             .skip(offset)

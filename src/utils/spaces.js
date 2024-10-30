@@ -54,7 +54,7 @@ class CreateTextSpace {
         this.content = (values === null || values === void 0 ? void 0 : values.content) || "";
         this.secured = (values === null || values === void 0 ? void 0 : values.secured) || false;
         this.password = (values === null || values === void 0 ? void 0 : values.secured) ? values.password || "" : null;
-        this.owner = (values === null || values === void 0 ? void 0 : values.owner) || "";
+        this.owner = (values === null || values === void 0 ? void 0 : values.owner) || null;
         this.links = getURLLinksInText((values === null || values === void 0 ? void 0 : values.content) || "");
     }
     hashPassword() {
@@ -418,7 +418,12 @@ function getSpacesOfOtherUsers(userId, options) {
         try {
             const { limit, page, offset, sort } = getFetchOptions(options);
             const textSpaces = yield TextSpace_1.default
-                .find({ owner: { $ne: userId } }, { password: 0 })
+                .find({
+                $or: [
+                    { owner: { $ne: userId } },
+                    { owner: null }
+                ]
+            }, { password: 0 })
                 .sort(sort)
                 .limit(limit)
                 .skip(offset)

@@ -36,11 +36,13 @@ const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
 });
 exports.authenticate = authenticate;
 const checkToken = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    return res.status(204).json();
+    return res.status(200).json({
+        userId: req.auth.id
+    });
 });
 exports.checkToken = checkToken;
 function createUserToken(user) {
-    const token = jsonwebtoken_1.default.sign({ id: user._id, isAdmin: Boolean(user === null || user === void 0 ? void 0 : user.isAdmin) }, String(process.env.JWT_SEC_KEY), { expiresIn: MAX_AGE });
+    const token = jsonwebtoken_1.default.sign({ id: user._id, isAdmin: Boolean(user === null || user === void 0 ? void 0 : user.isAdmin) }, String(process.env.JWT_SECRET_KEY), { expiresIn: MAX_AGE });
     const cookieOptions = { httpOnly: true, secure: true, sameSite: 'none', maxAge: MAX_AGE * 1000 };
     return { token, cookieOptions };
 }

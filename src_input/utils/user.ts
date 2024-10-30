@@ -56,7 +56,7 @@ export class CreateUser {
     }
 
     private async validateEmail() {
-        let errorMessage: string | undefined;
+        let errorMessage;
 
         if (!this.email) errorMessage = "User must have an email";
         else if (this.email.length > 1024) errorMessage = "email is too long";
@@ -81,7 +81,7 @@ export class CreateUser {
     }
 
     private async validateUsername() {
-        let errorMessage: undefined | string;
+        let errorMessage;
 
         if (!this.username) errorMessage = "User must have a username";
         else if(this.username.length > 1024) errorMessage = "username is too long";
@@ -98,7 +98,10 @@ export class CreateUser {
 
         if (errorMessage) {
             this.validation.passed = false;
-            this.validation.errors = { ...this.validation.errors, username: errorMessage };
+            this.validation.errors = { 
+                ...this.validation.errors,
+                username: errorMessage
+            };
         }
     }
 
@@ -113,7 +116,10 @@ export class CreateUser {
         
         if (errorMessage) {
             this.validation.passed = false;
-            this.validation.errors = { ...this.validation.errors, password: errorMessage }
+            this.validation.errors = {
+                ...this.validation.errors,
+                password: errorMessage
+            }
         }
     }
 
@@ -142,10 +148,10 @@ export class CreateUser {
                     this.validateName();
                     continue;
                 case "email":
-                    this.validateEmail();
+                    await this.validateEmail();
                     continue;
                 case "username":
-                    this.validateUsername();
+                    await this.validateUsername();
                     continue;
                 case "password":
                     this.validatePassword();

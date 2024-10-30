@@ -11,13 +11,17 @@ describe("Tests cookie authentication route", () => {
     it("Should return status code 204 when authentication is successful", async () => {
         jwt.verify.mockImplementation((token, secret_key, callBack) => callBack(null, { id: "user_id", isAdmin: false }));
 
-        request
+        const response = await request
             .agent(app)
-            .post("/auth/check")
+            .get("/auth/check")
             .set('Cookie', [
                 "userToken=abc123"
             ])
             .send({})
-            .expect(204);
+        
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({
+            userId: "user_id"
+        })
     })
 })

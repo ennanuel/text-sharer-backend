@@ -4,7 +4,7 @@ import { create, edit, deleteTextSpace, getSingleUnsecuredTextSpace, getSingleSe
 const route = Router();
 
 route.get("/user/:userId/:page", getUserTextSpaces);
-route.get("/explore/:page/?:userId", exploreTextSpaces);
+route.get("/explore/:page/:userId?", exploreTextSpaces);
 route.get("/space/unsecured/:textSpaceId", getSingleUnsecuredTextSpace);
 route.get("/space/secured/:textSpaceId", getSingleSecuredTextSpace);
 route.post("/create", create);
