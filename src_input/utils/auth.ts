@@ -1,5 +1,6 @@
 import { CookieOptions, RequestHandler, Response, Request } from "express";
 import jwt from "jsonwebtoken";
+import InvalidToken from "../models/InvalidToken";
 
 const MAX_AGE = 259200;
 
@@ -15,6 +16,9 @@ export const authenticate: RequestHandler = async (req, res, next) => {
         const userToken = req.cookies.userToken;
         if (!userToken) throw new Error("No user token");
 
+        const tokenIsInvalid = (await InvalidToken.countDocuments({ token: userToken })) > 0;
+        if(tokenIsInvalid) throw new Error("Ivalid token");
+
         jwt.verify(userToken, String(process.env.JWT_SECRET_KEY), (error: any, result: any) => {
             if (error) throw error;
             (req as ModifiedRequest).auth = result;
@@ -26,11 +30,30 @@ export const authenticate: RequestHandler = async (req, res, next) => {
     }
 };
 
+export const authenticateWithoutKickingout: RequestHandler = async (req, res, next) => {
+    try {
+        const userToken = req.cookies.userToken;
+        if (userToken) {
+            const tokenIsInvalid = (await InvalidToken.countDocuments({ token: userToken })) > 0;
+            if (!tokenIsInvalid) {
+                    jwt.verify(userToken, String(process.env.JWT_SECRET_KEY), (error: any, result: any) => {
+                    if (error) throw error;
+                    (req as ModifiedRequest).auth = result;
+                });
+            }
+        };
+        next();
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: (error as Error).message });
+    }
+};
+
 export const checkToken: RequestHandler = async (req, res) => {
     return res.status(200).json({
         userId: (req as ModifiedRequest).auth.id
     });
-}
+};
 
 function createUserToken(user: { _id: string; isAdmin?: boolean; }): { token: string; cookieOptions: CookieOptions; } {
     const token = jwt.sign({ id: user._id, isAdmin: Boolean(user?.isAdmin) }, String(process.env.JWT_SECRET_KEY), { expiresIn: MAX_AGE });
@@ -43,6 +66,18 @@ export function assignUserToken(user: { _id: string; isAdmin?: boolean }, res: R
     res.cookie('userToken', token, cookieOptions);
 };
 
-export function invalidateToken(res: Response) {
-    
+export const invalidateToken: RequestHandler = async (req, res) => {
+    try {
+        const userToken = req.cookies.userToken;
+        
+        await InvalidToken.create({
+            token: userToken
+        });
+
+        res.cookie('userToken', "");
+        return res.status(204).json(null);
+    } catch (error) {
+        console.error((error as Error).message);
+        return res.status(500).json({ message: (error as Error).message });
+    }
 }
