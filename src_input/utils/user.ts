@@ -387,17 +387,17 @@ export async function getUserDetails(userId: string) {
 function findUserWithUsername(usernameOrEmail: string) {
     return User.findOne(
         {
-            $or: [{
-                username: usernameOrEmail,
-                email: usernameOrEmail
-            }]
+            $or: [
+                { username: usernameOrEmail },
+                { email: usernameOrEmail }
+            ]
         },
         "password"
     ).lean();
 }
 
 export function comparePasswords(hashedPassword: string, unhashedPasssword: string) {
-    return bcrypt.compare(hashedPassword, unhashedPasssword);
+    return bcrypt.compare(unhashedPasssword, hashedPassword);
 }
 
 export async function logUserIn(userDetails?: { usernameOrEmail?: string; password?: string; }) {
