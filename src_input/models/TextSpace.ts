@@ -30,6 +30,10 @@ const TextSpaceSchema = new Schema({
         type: Boolean,
         default: false
     },
+    color: { 
+        type: String,
+        default: "blue"
+    },
     password: {
         type: String
     },
