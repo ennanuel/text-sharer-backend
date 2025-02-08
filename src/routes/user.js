@@ -6,7 +6,6 @@ const route = (0, express_1.Router)();
 route.get("/details/:userId", user_1.getUser);
 route.post('/register', user_1.register);
 route.post('/login', user_1.login);
-route.post('/logout', user_1.logout);
 route.put('/edit/:userId', user_1.edit);
 route.delete('/delete/:userId', user_1.deleteUser);
 exports.default = route;

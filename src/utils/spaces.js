@@ -30,8 +30,7 @@ exports.getFavoriteSpaces = getFavoriteSpaces;
 exports.getOwnedAndFavoriteSpaces = getOwnedAndFavoriteSpaces;
 exports.getUserSpaces = getUserSpaces;
 exports.getSpacesOfOtherUsers = getSpacesOfOtherUsers;
-exports.getSingleUnsecuredSpace = getSingleUnsecuredSpace;
-exports.getSingleSecuredSpace = getSingleSecuredSpace;
+exports.getSingleSpace = getSingleSpace;
 exports.deleteTextAndEditUserDetailsSpace = deleteTextAndEditUserDetailsSpace;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const TextSpace_1 = __importDefault(require("../models/TextSpace"));
@@ -52,6 +51,7 @@ class CreateTextSpace {
         this.title = (values === null || values === void 0 ? void 0 : values.title) || "Untitled space";
         this.desc = (values === null || values === void 0 ? void 0 : values.desc) || "";
         this.content = (values === null || values === void 0 ? void 0 : values.content) || "";
+        this.color = (values === null || values === void 0 ? void 0 : values.color) || "";
         this.secured = (values === null || values === void 0 ? void 0 : values.secured) || false;
         this.password = (values === null || values === void 0 ? void 0 : values.secured) ? values.password || "" : null;
         this.owner = (values === null || values === void 0 ? void 0 : values.owner) || null;
@@ -126,10 +126,11 @@ class CreateTextSpace {
             if (this.validation.passed) {
                 try {
                     const hashedPassword = yield this.hashPassword();
-                    yield TextSpace_1.default.create({
+                    const createdTextSpace = yield TextSpace_1.default.create({
                         title: this.title,
                         desc: this.desc,
                         content: this.content,
+                        color: this.color,
                         secured: this.secured,
                         password: hashedPassword,
                         links: this.links,
@@ -137,6 +138,7 @@ class CreateTextSpace {
                     });
                     return {
                         failed: false,
+                        textSpaceId: createdTextSpace._id,
                         message: "Text space saved"
                     };
                 }
@@ -169,6 +171,7 @@ class EditTextSpace {
         this.title = values === null || values === void 0 ? void 0 : values.title;
         this.desc = values === null || values === void 0 ? void 0 : values.desc;
         this.content = values === null || values === void 0 ? void 0 : values.content;
+        this.color = values === null || values === void 0 ? void 0 : values.color;
         this.secured = (values === null || values === void 0 ? void 0 : values.secured) || false;
         this.password = (values === null || values === void 0 ? void 0 : values.secured) ? values.password || "" : null;
         this.textSpaceId = values === null || values === void 0 ? void 0 : values.textSpaceId;
@@ -248,6 +251,9 @@ class EditTextSpace {
                         newValues.content = this.content;
                         newValues.links = this.links;
                     }
+                    if (this.color) {
+                        newValues.color = this.color;
+                    }
                     yield TextSpace_1.default.findByIdAndUpdate(this.textSpaceId, { $set: newValues });
                     return {
                         failed: false,
@@ -289,7 +295,8 @@ function getFetchOptions(options) {
     const result = {
         page,
         limit,
-        offset
+        offset,
+        sort: { createdAt: -1 }
     };
     if (options.filter)
         result.filter = options.filter !== "favorites" ? "owned" : options.filter;
@@ -299,12 +306,18 @@ function getFetchOptions(options) {
 }
 ;
 function getOwnedSpaces(userId, options) {
-    return TextSpace_1.default
-        .find({ owner: userId })
-        .sort({ name: "asc" })
-        .limit(options.limit)
-        .skip(options.offset)
-        .lean();
+    return __awaiter(this, void 0, void 0, function* () {
+        const query = { owner: userId };
+        const textSpaces = yield TextSpace_1.default
+            .find(query)
+            .sort({ name: "asc" })
+            .limit(options.limit)
+            .skip(options.offset)
+            .lean();
+        const totalTextSpaces = yield TextSpace_1.default.countDocuments(query);
+        const totalPages = Math.ceil(totalTextSpaces / options.limit);
+        return { textSpaces, totalPages };
+    });
 }
 ;
 function getFavoriteSpaces(userId, options) {
@@ -312,12 +325,16 @@ function getFavoriteSpaces(userId, options) {
         const user = yield User_1.default.findById(userId, "favorites").lean();
         if (!user)
             return [];
-        return TextSpace_1.default
-            .find({ _id: { $in: user.favorites } }, "title desc content likes views owner secured")
+        const query = { _id: { $in: user.favorites } };
+        const textSpaces = TextSpace_1.default
+            .find(query, "title desc content likes views owner secured")
             .sort({ name: "asc" })
             .limit(options.limit)
             .skip(options.offset)
             .lean();
+        const totalTextSpaces = yield TextSpace_1.default.countDocuments(query);
+        const totalPages = Math.ceil(totalTextSpaces / options.limit);
+        return { textSpaces, totalPages };
     });
 }
 ;
@@ -326,8 +343,7 @@ function getOwnedAndFavoriteSpaces(userId, options) {
         const user = yield User_1.default.findById(userId, 'favorites').lean();
         if (!user)
             return [];
-        return TextSpace_1.default
-            .find({
+        const query = {
             $or: [
                 { owner: userId },
                 {
@@ -336,13 +352,19 @@ function getOwnedAndFavoriteSpaces(userId, options) {
                     }
                 }
             ]
-        })
+        };
+        const textSpaces = yield TextSpace_1.default
+            .find(query)
             .sort({ createdAt: -1 })
             .limit(options.limit)
             .skip(options.offset)
             .lean();
+        const totalTextSpaces = yield TextSpace_1.default.countDocuments(query);
+        const totalPages = Math.ceil(totalTextSpaces / options.limit);
+        return { textSpaces, totalPages };
     });
 }
+;
 function getTextSpaceOwnerId(textSpaces) {
     return textSpaces.reduce((ownerIds, textSpace) => {
         var _a;
@@ -352,13 +374,14 @@ function getTextSpaceOwnerId(textSpaces) {
     }, []);
 }
 ;
-function getTextSpacesOwners(textSpaces) {
+function getTextSpacesOwners(textSpaces, ownerId) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const ownerIds = getTextSpaceOwnerId(textSpaces);
             const owners = yield User_1.default.find({ _id: { $in: ownerIds } }, "username profileImage").lean();
             const ownersInObjectFormat = owners
-                .reduce((formattedOwners, owner) => (Object.assign(Object.assign({}, formattedOwners), { [owner._id.toString()]: owner })), {});
+                .reduce((formattedOwners, owner) => (Object.assign(Object.assign({}, formattedOwners), { [owner._id.toString()]: owner._id.toString() === ownerId ? Object.assign(Object.assign({}, owner), { username: "You" }) :
+                    owner })), {});
             return ownersInObjectFormat;
         }
         catch (error) {
@@ -366,10 +389,10 @@ function getTextSpacesOwners(textSpaces) {
         }
     });
 }
-function expandTextSpaceOwnerDetails(textSpaces) {
+function expandTextSpaceOwnerDetails(textSpaces, ownerId) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const owners = yield getTextSpacesOwners(textSpaces);
+            const owners = yield getTextSpacesOwners(textSpaces, ownerId);
             const expandedTextSpaces = textSpaces.map((textSpace) => (Object.assign(Object.assign({}, textSpace), { owner: textSpace.owner ?
                     owners[textSpace.owner.toString()] :
                     {
@@ -386,25 +409,26 @@ function expandTextSpaceOwnerDetails(textSpaces) {
 function getUserSpaces(userId, options) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let textSpaces;
+            let result;
             const { limit, offset, page, filter } = getFetchOptions(options);
             if (filter === 'favorites')
-                textSpaces = yield getFavoriteSpaces(userId, { offset, limit });
+                result = yield getFavoriteSpaces(userId, { offset, limit });
             else if (filter === 'owned')
-                textSpaces = yield getOwnedSpaces(userId, { offset, limit });
+                result = yield getOwnedSpaces(userId, { offset, limit });
             else
-                textSpaces = yield getOwnedAndFavoriteSpaces(userId, { offset, limit });
-            const expandedTextSpaces = yield expandTextSpaceOwnerDetails(textSpaces);
+                result = yield getOwnedAndFavoriteSpaces(userId, { offset, limit });
+            const expandedTextSpaces = yield expandTextSpaceOwnerDetails(result.textSpaces, userId);
             return {
                 page,
                 limit,
                 filter,
                 failed: false,
+                totalPages: result.totalPages,
                 textSpaces: expandedTextSpaces
             };
         }
         catch (error) {
-            console.log(error);
+            console.error(error);
             return {
                 failed: true,
                 message: error.message
@@ -416,24 +440,30 @@ function getUserSpaces(userId, options) {
 function getSpacesOfOtherUsers(userId, options) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            const user = yield User_1.default.findById(userId).lean();
+            const query = {
+                $or: [
+                    { owner: null },
+                    { owner: { $ne: userId } },
+                    { owner: { $ne: userId }, _id: { $not: { $in: user === null || user === void 0 ? void 0 : user.favorites } } }
+                ]
+            };
             const { limit, page, offset, sort } = getFetchOptions(options);
             const textSpaces = yield TextSpace_1.default
-                .find({
-                $or: [
-                    { owner: { $ne: userId } },
-                    { owner: null }
-                ]
-            }, { password: 0 })
+                .find(query, { password: 0 })
                 .sort(sort)
                 .limit(limit)
                 .skip(offset)
                 .lean();
-            const expandedTextSpaces = yield expandTextSpaceOwnerDetails(textSpaces);
+            const totalTextSpaces = yield TextSpace_1.default.countDocuments(query);
+            const totalPages = Math.ceil(totalTextSpaces / limit);
+            const expandedTextSpaces = yield expandTextSpaceOwnerDetails(textSpaces, userId);
             return {
                 limit,
                 page,
                 failed: false,
                 sortedBy: options.sortBy,
+                totalPages,
                 textSpaces: expandedTextSpaces,
             };
         }
@@ -447,54 +477,55 @@ function getSpacesOfOtherUsers(userId, options) {
     });
 }
 ;
-function getSingleUnsecuredSpace(textSpaceId) {
+function getSingleSpace(textSpaceId, password, userId) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const textSpace = yield TextSpace_1.default
-                .findOne({ _id: textSpaceId, secured: false }, { password: 0 })
+                .findById(textSpaceId)
                 .lean();
-            if (!textSpace)
-                throw Error("No text space found");
-            const expandedTextSpace = yield expandTextSpaceOwnerDetails([textSpace]);
+            const validation = yield validateResult(textSpace, password);
+            if (!validation.passed)
+                throw validation;
+            const expandedTextSpace = yield expandTextSpaceOwnerDetails([textSpace], userId);
+            const result = expandedTextSpace.map((_a) => {
+                var { password } = _a, textSpace = __rest(_a, ["password"]);
+                return textSpace;
+            })[0];
             return {
                 failed: false,
-                textSpace: expandedTextSpace[0]
+                textSpace: result
             };
         }
         catch (error) {
-            console.error(error);
             return {
                 failed: true,
-                message: error.message,
+                statusCode: error.statusCode,
+                message: error.message
             };
         }
     });
 }
-function getSingleSecuredSpace(textSpaceId, password) {
+;
+function validateResult(textSpace, password) {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
+        const validation = { passed: true };
+        if (!textSpace) {
+            validation.message = "No text space found";
+            validation.statusCode = 408;
+        }
+        if (textSpace.secured) {
             if (!password)
-                throw Error("Password required");
-            const result = yield TextSpace_1.default.findOne({ _id: textSpaceId, secured: true }).lean();
-            if (!result)
-                throw Error("No text space found");
-            const { password: hashedPassword } = result, textSpace = __rest(result, ["password"]);
-            const comparison = yield (0, user_1.comparePasswords)(String(hashedPassword), String(password));
+                validation.message = "Password required";
+            const hashedPassword = textSpace.password;
+            const comparison = yield (0, user_1.comparePasswords)(hashedPassword, password);
             if (!comparison)
-                throw Error("Incorrect password");
-            const expandedTextSpace = yield expandTextSpaceOwnerDetails([textSpace]);
-            return {
-                failed: false,
-                textSpace: expandedTextSpace[0]
-            };
+                validation.message = "Incorrect password";
+            if (Boolean(validation.message))
+                validation.statusCode = 401;
         }
-        catch (error) {
-            console.error(error);
-            return {
-                failed: true,
-                message: error.message,
-            };
-        }
+        if (validation.message)
+            validation.passed = false;
+        return validation;
     });
 }
 function deleteTextAndEditUserDetailsSpace(textSpaceId) {

@@ -12,16 +12,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkToken = exports.authenticate = void 0;
+exports.invalidateToken = exports.checkToken = exports.authenticateWithoutKickingout = exports.authenticate = void 0;
 exports.assignUserToken = assignUserToken;
-exports.invalidateToken = invalidateToken;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const InvalidToken_1 = __importDefault(require("../models/InvalidToken"));
 const MAX_AGE = 259200;
 const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userToken = req.cookies.userToken;
         if (!userToken)
             throw new Error("No user token");
+        const tokenIsInvalid = (yield InvalidToken_1.default.countDocuments({ token: userToken })) > 0;
+        if (tokenIsInvalid)
+            throw new Error("Ivalid token");
         jsonwebtoken_1.default.verify(userToken, String(process.env.JWT_SECRET_KEY), (error, result) => {
             if (error)
                 throw error;
@@ -35,6 +38,28 @@ const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.authenticate = authenticate;
+const authenticateWithoutKickingout = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userToken = req.cookies.userToken;
+        if (userToken) {
+            const tokenIsInvalid = (yield InvalidToken_1.default.countDocuments({ token: userToken })) > 0;
+            if (!tokenIsInvalid) {
+                jsonwebtoken_1.default.verify(userToken, String(process.env.JWT_SECRET_KEY), (error, result) => {
+                    if (error)
+                        throw error;
+                    req.auth = result;
+                });
+            }
+        }
+        ;
+        next();
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.authenticateWithoutKickingout = authenticateWithoutKickingout;
 const checkToken = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     return res.status(200).json({
         userId: req.auth.id
@@ -52,5 +77,18 @@ function assignUserToken(user, res) {
     res.cookie('userToken', token, cookieOptions);
 }
 ;
-function invalidateToken(res) {
-}
+const invalidateToken = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userToken = req.cookies.userToken;
+        yield InvalidToken_1.default.create({
+            token: userToken
+        });
+        res.cookie('userToken', "");
+        return res.status(204).json(null);
+    }
+    catch (error) {
+        console.error(error.message);
+        return res.status(500).json({ message: error.message });
+    }
+});
+exports.invalidateToken = invalidateToken;

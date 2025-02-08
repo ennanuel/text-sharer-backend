@@ -373,14 +373,14 @@ function getUserDetails(userId) {
 }
 function findUserWithUsername(usernameOrEmail) {
     return User_1.default.findOne({
-        $or: [{
-                username: usernameOrEmail,
-                email: usernameOrEmail
-            }]
+        $or: [
+            { username: usernameOrEmail },
+            { email: usernameOrEmail }
+        ]
     }, "password").lean();
 }
 function comparePasswords(hashedPassword, unhashedPasssword) {
-    return bcrypt_1.default.compare(hashedPassword, unhashedPasssword);
+    return bcrypt_1.default.compare(unhashedPasssword, hashedPassword);
 }
 function logUserIn(userDetails) {
     return __awaiter(this, void 0, void 0, function* () {

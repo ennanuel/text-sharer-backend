@@ -7,8 +7,8 @@ exports.app = exports.server = exports.io = void 0;
 const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const socket_io_1 = require("socket.io");
-const dotenv_1 = __importDefault(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
+const dotenv_1 = __importDefault(require("dotenv"));
 const body_parser_1 = __importDefault(require("body-parser"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const user_1 = __importDefault(require("./routes/user"));
@@ -19,13 +19,13 @@ const app = (0, express_1.default)();
 exports.app = app;
 const server = http_1.default.createServer(app);
 exports.server = server;
+app.use((0, cors_1.default)({
+    origin: process.env.FRONTEND_URL,
+    credentials: true
+}));
 app.use(body_parser_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use((0, cookie_parser_1.default)());
-app.use((0, cors_1.default)({
-    origin: [String(process.env.FRONTEND_URL)],
-    credentials: true
-}));
 app.use("/auth", auth_1.default);
 app.use("/user", user_1.default);
 app.use("/spaces", space_1.default);

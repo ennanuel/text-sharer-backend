@@ -20,7 +20,7 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.edit = exports.logout = exports.login = exports.register = exports.getUser = void 0;
+exports.deleteUser = exports.edit = exports.login = exports.register = exports.getUser = void 0;
 const user_1 = require("../utils/user");
 const error_1 = require("../utils/error");
 const auth_1 = require("../utils/auth");
@@ -81,19 +81,6 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.login = login;
-const logout = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        (0, auth_1.invalidateToken)(res);
-        return res.status(204).json();
-    }
-    catch (error) {
-        return res.status(500).json({
-            failed: true,
-            message: "Could not log out"
-        });
-    }
-});
-exports.logout = logout;
 const edit = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = {
@@ -123,7 +110,6 @@ const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         const result = yield (0, user_1.deleteUserAndSpaces)(userId, password);
         if (result.failed)
             throw result;
-        (0, auth_1.invalidateToken)(res);
         return res.status(200).json(result);
     }
     catch (error) {
