@@ -4,6 +4,7 @@ import TextSpace from "../models/TextSpace";
 import User from "../models/User";
 import { FlattenMaps, SortOrder, Types } from "mongoose";
 import { comparePasswords } from "./user";
+import { ModifiedError } from "./error";
 
 export const MAX_CONTENT_CHAR_LENGTH = 1024, MAX_LINKS_LENGTH = 10, MAX_TITLE_CHAR_LENGTH = 50, MAX_DESC_CHAR_LENGTH = 300;
 
@@ -21,16 +22,18 @@ export class CreateTextSpace {
     private secured;
     private password: string | null;
     private links;
+    private color;
     private owner;
     private validation: { passed: boolean; errors: { [key: string]: string; } } = {
         passed: false,
         errors: {}
     }
 
-    constructor(values?: { title?: string; content?: string; desc?: string; secured?: boolean; password?: string; owner?: string }) {
+    constructor(values?: { title?: string; content?: string; desc?: string; color?: string; secured?: boolean; password?: string; owner?: string }) {
         this.title = values?.title || "Untitled space";
         this.desc = values?.desc || "";
         this.content = values?.content || "";
+        this.color = values?.color || "";
         this.secured = values?.secured || false;
         this.password = values?.secured ? values.password || "" : null;
         this.owner = values?.owner || null;
@@ -119,10 +122,11 @@ export class CreateTextSpace {
         if (this.validation.passed) {
             try {
                 const hashedPassword = await this.hashPassword();
-                await TextSpace.create({
+                const createdTextSpace = await TextSpace.create({
                     title: this.title,
                     desc: this.desc,
                     content: this.content,
+                    color: this.color,
                     secured: this.secured,
                     password: hashedPassword,
                     links: this.links,
@@ -131,6 +135,7 @@ export class CreateTextSpace {
 
                 return {
                     failed: false,
+                    textSpaceId: createdTextSpace._id,
                     message: "Text space saved"
                 }
             } catch (error) {
@@ -159,15 +164,17 @@ export class EditTextSpace {
     private secured;
     private password: string | null;
     private links;
+    private color;
     private validation: { passed: boolean; errors: { [key: string]: string; } } = {
         passed: false,
         errors: {}
     }
 
-    constructor(values?: { title?: string; content?: string; desc?: string; secured?: boolean; password?: string; textSpaceId?: string }) {
+    constructor(values?: { title?: string; content?: string; desc?: string; color?: string; secured?: boolean; password?: string; textSpaceId?: string }) {
         this.title = values?.title;
         this.desc = values?.desc;
         this.content = values?.content;
+        this.color = values?.color;
         this.secured = values?.secured || false;
         this.password = values?.secured ? values.password || "" : null;
         this.textSpaceId = values?.textSpaceId;
@@ -268,6 +275,9 @@ export class EditTextSpace {
                     newValues.content = this.content;
                     newValues.links = this.links;
                 }
+                if (this.color) {
+                    newValues.color = this.color;
+                }
 
                 await TextSpace.findByIdAndUpdate(this.textSpaceId, { $set: newValues });
 
@@ -312,7 +322,8 @@ function getFetchOptions(options: { page?: any, limit?: any; filter?: any; sortB
     } = {
         page,
         limit,
-        offset
+        offset,
+        sort: { createdAt: -1 }
     };
 
     if (options.filter) result.filter = options.filter !== "favorites" ? "owned" : options.filter;
@@ -321,26 +332,38 @@ function getFetchOptions(options: { page?: any, limit?: any; filter?: any; sortB
     return result;
 };
 
-export function getOwnedSpaces(userId: string, options: { offset: number; limit: number; }) { 
+export async function getOwnedSpaces(userId: string, options: { offset: number; limit: number; }) { 
+    const query = { owner: userId }
 
-    return TextSpace
-        .find({ owner: userId })
+    const textSpaces = await TextSpace
+        .find(query)
         .sort({ name: "asc" })
         .limit(options.limit)
         .skip(options.offset)
         .lean();
+
+    const totalTextSpaces = await TextSpace.countDocuments(query);
+    const totalPages = Math.ceil(totalTextSpaces / options.limit);
+
+    return { textSpaces, totalPages };
 };
 
 export async function getFavoriteSpaces(userId: string, options: { offset: number; limit: number; }) { 
     const user = await User.findById(userId, "favorites").lean();
     if (!user) return [];
 
-    return TextSpace
-        .find({ _id: { $in: user.favorites } }, "title desc content likes views owner secured")
+    const query = { _id: { $in: user.favorites } };
+    const textSpaces = TextSpace
+        .find(query, "title desc content likes views owner secured")
         .sort({ name: "asc" })
         .limit(options.limit)
         .skip(options.offset)
         .lean();
+
+    const totalTextSpaces = await TextSpace.countDocuments(query);
+    const totalPages = Math.ceil(totalTextSpaces / options.limit);
+    
+    return { textSpaces, totalPages };
 };
 
 export async function getOwnedAndFavoriteSpaces(userId: string, options: { offset: number; limit: number; }) {
@@ -348,22 +371,28 @@ export async function getOwnedAndFavoriteSpaces(userId: string, options: { offse
 
     if (!user) return [];
 
-    return TextSpace
-        .find({
-            $or: [
-                { owner: userId },
-                {
-                    _id: {
-                        $in: user.favorites
-                    }
+    const query = {
+        $or: [
+            { owner: userId },
+            {
+                _id: {
+                    $in: user.favorites
                 }
-            ]
-        })
+            }
+        ]
+    };
+
+    const textSpaces = await TextSpace
+        .find(query)
         .sort({ createdAt: -1 })
         .limit(options.limit)
         .skip(options.offset)
         .lean();
-}
+    const totalTextSpaces = await TextSpace.countDocuments(query);
+    const totalPages = Math.ceil(totalTextSpaces / options.limit);
+
+    return { textSpaces, totalPages };
+};
 
 function getTextSpaceOwnerId(textSpaces: { owner: Types.ObjectId }[]) {
     return textSpaces.reduce((ownerIds: string[], textSpace) => textSpace.owner && !ownerIds.includes(textSpace?.owner?.toString()) ?
@@ -384,7 +413,7 @@ async function getTextSpacesOwners(textSpaces: FlattenMaps<({
     owner: Types.ObjectId;
     secured: boolean;
     autoDelete: boolean;
-})>[]) {
+})>[], ownerId: string) {
     try {
         
         const ownerIds = getTextSpaceOwnerId(textSpaces);
@@ -394,7 +423,12 @@ async function getTextSpacesOwners(textSpaces: FlattenMaps<({
             .reduce((formattedOwners, owner) => (
                 {
                     ...formattedOwners,
-                    [owner._id.toString()]: owner
+                    [owner._id.toString()]: owner._id.toString() === ownerId ? 
+                        {
+                            ...owner,
+                            username: "You"
+                        } :
+                        owner
                 }
             ), {});
 
@@ -422,7 +456,7 @@ async function expandTextSpaceOwnerDetails(textSpaces: FlattenMaps<(
         secured: boolean;
         autoDelete: boolean;
     }
-)>[]) {
+)>[], ownerId: string) {
     type OwnerType = {
         [key: string]: {
             _id: Types.ObjectId;
@@ -431,7 +465,7 @@ async function expandTextSpaceOwnerDetails(textSpaces: FlattenMaps<(
         }
     };
     try {
-        const owners = await getTextSpacesOwners(textSpaces);
+        const owners = await getTextSpacesOwners(textSpaces, ownerId);
 
         const expandedTextSpaces = textSpaces.map((textSpace) => ({
             ...textSpace,
@@ -451,24 +485,25 @@ async function expandTextSpaceOwnerDetails(textSpaces: FlattenMaps<(
 
 export async function getUserSpaces(userId: string, options: { limit?: any; page?: any; filter?: any; }) {
     try {
-        let textSpaces;
+        let result: any;
         const { limit, offset, page, filter } = getFetchOptions(options);
 
-        if (filter === 'favorites') textSpaces = await getFavoriteSpaces(userId, { offset, limit });
-        else if (filter === 'owned') textSpaces = await getOwnedSpaces(userId, { offset, limit });
-        else textSpaces = await getOwnedAndFavoriteSpaces(userId, { offset, limit });
+        if (filter === 'favorites') result = await getFavoriteSpaces(userId, { offset, limit });
+        else if (filter === 'owned') result = await getOwnedSpaces(userId, { offset, limit });
+        else result = await getOwnedAndFavoriteSpaces(userId, { offset, limit });
 
-        const expandedTextSpaces = await expandTextSpaceOwnerDetails(textSpaces as any[]);
+        const expandedTextSpaces = await expandTextSpaceOwnerDetails(result.textSpaces as any[], userId);
 
         return {
             page,
             limit,
             filter,
             failed: false,
+            totalPages: result.totalPages,
             textSpaces: expandedTextSpaces
         };
     } catch (error) {
-        console.log(error);
+        console.error(error);
 
         return {
             failed: true,
@@ -485,30 +520,33 @@ export async function getSpacesOfOtherUsers(
         sortBy?: any;
     }) { 
     try {
+        const user = await User.findById(userId).lean();
+        const query = {
+            $or: [
+                { owner: null },
+                { owner: { $ne: userId } },
+                { owner: { $ne: userId }, _id: { $not: { $in: user?.favorites } } }
+            ]
+        };
         const { limit, page, offset, sort } = getFetchOptions(options);
 
         const textSpaces = await TextSpace
-            .find(
-                {
-                    $or: [
-                        { owner: { $ne: userId } },
-                        { owner: null }
-                    ]
-                },
-                { password: 0 }
-            )
+            .find(query, { password: 0 })
             .sort(sort)
             .limit(limit)
             .skip(offset)
             .lean();
+        const totalTextSpaces = await TextSpace.countDocuments(query);
+        const totalPages = Math.ceil(totalTextSpaces / limit);
         
-        const expandedTextSpaces = await expandTextSpaceOwnerDetails(textSpaces as any[]);
+        const expandedTextSpaces = await expandTextSpaceOwnerDetails(textSpaces as any[], userId);
         
         return {
             limit,
             page,
             failed: false,
             sortedBy: options.sortBy,
+            totalPages,
             textSpaces: expandedTextSpaces,
         }
     } catch (error) {
@@ -521,55 +559,57 @@ export async function getSpacesOfOtherUsers(
     }
 };
 
-export async function getSingleUnsecuredSpace(textSpaceId: string) {
+export async function getSingleSpace(textSpaceId: string, password: any, userId: string) {
     try {
         const textSpace = await TextSpace
-            .findOne({ _id: textSpaceId, secured: false }, { password: 0 })
+            .findById(textSpaceId)
             .lean();
-        
-        if (!textSpace) throw Error("No text space found");
 
-        const expandedTextSpace = await expandTextSpaceOwnerDetails([(textSpace as any)]);
+        const validation = await validateResult(textSpace, password);
+        if(!validation.passed) throw validation;
 
+        const expandedTextSpace = await expandTextSpaceOwnerDetails([(textSpace as any)], userId);
+
+        const result = expandedTextSpace.map(({ password, ...textSpace }) => textSpace)[0]
         return {
             failed: false,
-            textSpace: expandedTextSpace[0]
+            textSpace: result
         }
     } catch (error) {
-        console.error(error);
+
         return {
             failed: true,
-            message: (error as Error).message,
+            statusCode: (error as ModifiedError).statusCode,
+            message: (error as ModifiedError).message
         }
     }
-}
+};
 
-export async function getSingleSecuredSpace(textSpaceId: string, password: any) {
-    try {
-        if (!password) throw Error("Password required");
+async function validateResult(textSpace: any, password: string) {
+    const validation: {
+        passed: boolean;
+        message?: string;
+        statusCode?: number;
+    } = { passed: true };
 
-        const result = await TextSpace.findOne({ _id: textSpaceId, secured: true }).lean();
+    if (!textSpace) {
+        validation.message = "No text space found";
+        validation.statusCode = 408;
+    }
         
-        if (!result) throw Error("No text space found");
+    if(textSpace.secured) {
+        if (!password) validation.message = "Password required";
+        const hashedPassword = textSpace.password;
 
-        const { password: hashedPassword, ...textSpace } = result;
-        const comparison = await comparePasswords(String(hashedPassword), String(password));
+        const comparison = await comparePasswords(hashedPassword, password);
+        if (!comparison) validation.message = "Incorrect password";
 
-        if (!comparison) throw Error("Incorrect password");
-
-        const expandedTextSpace = await expandTextSpaceOwnerDetails([textSpace as any]);
-
-        return {
-            failed: false,
-            textSpace: expandedTextSpace[0]
-        }
-    } catch (error) {
-        console.error(error);
-        return {
-            failed: true,
-            message: (error as Error).message,
-        }
+        if(Boolean(validation.message)) validation.statusCode = 401;
     }
+
+    if(validation.message) validation.passed = false;
+
+    return validation;
 }
 
 export async function deleteTextAndEditUserDetailsSpace(textSpaceId: string) {
