@@ -62,20 +62,6 @@ export const login: RequestHandler = async (req, res) => {
     }
 };
 
-export const logout: RequestHandler = async (req, res) => {
-    try {
-        invalidateToken(res);
-
-        return res.status(204).json();
-    } catch (error) {
-        return res.status(500).json({
-            failed: true,
-            message: "Could not log out"
-        })
-    }
-}
-
-
 export const edit: RequestHandler = async (req, res) => { 
     try {
         const user = {
@@ -109,8 +95,7 @@ export const deleteUser: RequestHandler = async (req, res) => {
         const result = await deleteUserAndSpaces(userId, password);
 
         if (result.failed) throw result;
-
-        invalidateToken(res);
+        
         return res.status(200).json(result);
     } catch (error) {
         console.error(error);
