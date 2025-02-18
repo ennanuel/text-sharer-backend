@@ -20,7 +20,7 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteTextSpace = exports.edit = exports.create = exports.getSingleTextSpace = exports.exploreTextSpaces = exports.getUserTextSpaces = void 0;
+exports.deleteTextSpace = exports.removeFromFavorites = exports.addToFavorites = exports.edit = exports.create = exports.getSingleTextSpace = exports.exploreTextSpaces = exports.getUserTextSpaces = void 0;
 const error_1 = require("../utils/error");
 const spaces_1 = require("../utils/spaces");
 const server_1 = require("../server");
@@ -48,8 +48,8 @@ const exploreTextSpaces = (req, res) => __awaiter(void 0, void 0, void 0, functi
     try {
         const userId = (_a = req === null || req === void 0 ? void 0 : req.auth) === null || _a === void 0 ? void 0 : _a.id;
         const { page } = req.params;
-        const { limit = 9, sortBy } = req.query;
-        const options = { page, limit, sortBy };
+        const { limit = 9, sortBy, filter } = req.query;
+        const options = { page, limit, sortBy, filter };
         const result = yield (0, spaces_1.getSpacesOfOtherUsers)(userId, options);
         if (result.failed)
             throw result;
@@ -121,6 +121,40 @@ const edit = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.edit = edit;
+const addToFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req === null || req === void 0 ? void 0 : req.auth) === null || _a === void 0 ? void 0 : _a.id;
+        const textSpaceId = req.params.textSpaceId;
+        const _b = yield (0, spaces_1.addTextSpaceToFavorites)({ userId, textSpaceId }), { failed } = _b, result = __rest(_b, ["failed"]);
+        if (failed)
+            throw result;
+        return res.status(200).json({ message: result.message });
+    }
+    catch (error) {
+        console.error(error);
+        const _c = (0, error_1.handleError)(error), { statusCode } = _c, result = __rest(_c, ["statusCode"]);
+        res.status(statusCode).json(result);
+    }
+});
+exports.addToFavorites = addToFavorites;
+const removeFromFavorites = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const userId = (_a = req === null || req === void 0 ? void 0 : req.auth) === null || _a === void 0 ? void 0 : _a.id;
+        const textSpaceId = req.params.textSpaceId;
+        const _b = yield (0, spaces_1.removeTextSpaceFromFavorites)({ userId, textSpaceId }), { failed } = _b, result = __rest(_b, ["failed"]);
+        if (failed)
+            throw result;
+        return res.status(200).json({ message: "Removed from favorites" });
+    }
+    catch (error) {
+        console.error(error);
+        const _c = (0, error_1.handleError)(error), { statusCode } = _c, result = __rest(_c, ["statusCode"]);
+        res.status(statusCode).json(result);
+    }
+});
+exports.removeFromFavorites = removeFromFavorites;
 const deleteTextSpace = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
