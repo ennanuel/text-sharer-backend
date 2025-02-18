@@ -5,6 +5,7 @@ import User from "../models/User";
 import { FlattenMaps, SortOrder, Types } from "mongoose";
 import { comparePasswords } from "./user";
 import { ModifiedError } from "./error";
+import { query } from "express";
 
 export const MAX_CONTENT_CHAR_LENGTH = 1024, MAX_LINKS_LENGTH = 10, MAX_TITLE_CHAR_LENGTH = 50, MAX_DESC_CHAR_LENGTH = 300;
 
@@ -302,6 +303,27 @@ export class EditTextSpace {
     }
 };
 
+export async function addTextSpaceToFavorites({ userId, textSpaceId }: { userId?: string; textSpaceId?: string }) {
+    try {
+        const textSpaceExists = await TextSpace.countDocuments({ _id: textSpaceId });
+        if(!textSpaceExists) throw new Error("Text space does not exist");
+
+        const user = await User.findByIdAndUpdate(userId, { $addToSet: { favorites: textSpaceId }});
+        return { failed: false, message: "Text space added to favorites!" };
+    } catch (error) {
+        return { failed: true, message: (error as Error).message };
+    }
+};
+
+export async function removeTextSpaceFromFavorites({ userId, textSpaceId }: { userId?: string; textSpaceId?: string }) {
+    try {
+        await User.findByIdAndUpdate(userId, { $pull: { favorites: textSpaceId }});
+        return { failed: false, message: "Text space removed from favorites!" };
+    } catch (error) {
+        return { failed: true, message: (error as Error).message };
+    }
+};
+
 function getSortObject(sortBy?: "popularity" | "timeCreated"): { [key: string]: SortOrder; } {
     if (sortBy === "timeCreated") return { createdAt: "desc" };
     else return { likes: "desc", views: "desc" };
@@ -317,7 +339,7 @@ function getFetchOptions(options: { page?: any, limit?: any; filter?: any; sortB
         page: number;
         limit: number;
         offset: number;
-        filter?: "favorites" | "owned";
+        filter?: string;
         sort?: { [key: string]: SortOrder }
     } = {
         page,
@@ -326,61 +348,43 @@ function getFetchOptions(options: { page?: any, limit?: any; filter?: any; sortB
         sort: { createdAt: -1 }
     };
 
-    if (options.filter) result.filter = options.filter !== "favorites" ? "owned" : options.filter;
+    if (typeof options.filter === "string" && Boolean(options.filter?.length)) result.filter = options.filter;
     if (options.sortBy) result.sort = getSortObject(options.sortBy);
 
     return result;
 };
 
-export async function getOwnedSpaces(userId: string, options: { offset: number; limit: number; }) { 
-    const query = { owner: userId }
-
-    const textSpaces = await TextSpace
-        .find(query)
-        .sort({ name: "asc" })
-        .limit(options.limit)
-        .skip(options.offset)
-        .lean();
-
-    const totalTextSpaces = await TextSpace.countDocuments(query);
-    const totalPages = Math.ceil(totalTextSpaces / options.limit);
-
-    return { textSpaces, totalPages };
-};
-
-export async function getFavoriteSpaces(userId: string, options: { offset: number; limit: number; }) { 
-    const user = await User.findById(userId, "favorites").lean();
-    if (!user) return [];
-
-    const query = { _id: { $in: user.favorites } };
-    const textSpaces = TextSpace
-        .find(query, "title desc content likes views owner secured")
-        .sort({ name: "asc" })
-        .limit(options.limit)
-        .skip(options.offset)
-        .lean();
-
-    const totalTextSpaces = await TextSpace.countDocuments(query);
-    const totalPages = Math.ceil(totalTextSpaces / options.limit);
-    
-    return { textSpaces, totalPages };
-};
-
-export async function getOwnedAndFavoriteSpaces(userId: string, options: { offset: number; limit: number; }) {
+export async function getOwnedAndFavoriteSpaces(userId: string, options: { offset: number; limit: number; filter?: string }) {
     const user = await User.findById(userId, 'favorites').lean();
-
-    if (!user) return [];
-
-    const query = {
+    
+    if (!user) return { textSpaces: [], totalPages: 0 };
+    
+    const query: { 
+        $or?: any[];
+        _id?: { $in: any[] };
+        secured?: boolean; 
+        owner?: string;
+    } = {
         $or: [
             { owner: userId },
-            {
-                _id: {
+            { _id: {
                     $in: user.favorites
-                }
-            }
+            }}
         ]
     };
+
+    if(options?.filter?.length) {
+        if (options.filter?.includes('FAVORITES')) {
+            query._id = { $in: user.favorites };
+            delete query.$or;
+        }
+        if (options.filter?.includes('OWNED')) {
+            query.owner = userId;
+            delete query.$or;
+        }
+        if (options.filter?.includes("SECURED")) query.secured = true;
+        if (options.filter?.includes("UNSECURED")) query.secured = false;
+    }
 
     const textSpaces = await TextSpace
         .find(query)
@@ -465,16 +469,20 @@ async function expandTextSpaceOwnerDetails(textSpaces: FlattenMaps<(
         }
     };
     try {
+        const DEFAULT_USER_DETAIL = {
+            username: "Annonymous",
+            profileImage: null
+        }
         const owners = await getTextSpacesOwners(textSpaces, ownerId);
+        const user = await User.findById(ownerId, 'favorites').lean();
 
         const expandedTextSpaces = textSpaces.map((textSpace) => ({
             ...textSpace,
+            isYours: ownerId && textSpace?.owner?.toString() === ownerId,
+            isInYourFavorites: Boolean(user?.favorites?.map((item) => item.toString())?.includes(textSpace._id.toString())),
             owner: textSpace.owner ?
                 (owners as OwnerType)[textSpace.owner.toString()] :
-                {
-                    username: "Annonymous",
-                    profileImage: null
-                }
+                DEFAULT_USER_DETAIL
         }));
             
         return expandedTextSpaces;
@@ -485,12 +493,9 @@ async function expandTextSpaceOwnerDetails(textSpaces: FlattenMaps<(
 
 export async function getUserSpaces(userId: string, options: { limit?: any; page?: any; filter?: any; }) {
     try {
-        let result: any;
         const { limit, offset, page, filter } = getFetchOptions(options);
 
-        if (filter === 'favorites') result = await getFavoriteSpaces(userId, { offset, limit });
-        else if (filter === 'owned') result = await getOwnedSpaces(userId, { offset, limit });
-        else result = await getOwnedAndFavoriteSpaces(userId, { offset, limit });
+        const result = await getOwnedAndFavoriteSpaces(userId, { offset, limit, filter });
 
         const expandedTextSpaces = await expandTextSpaceOwnerDetails(result.textSpaces as any[], userId);
 
@@ -515,20 +520,29 @@ export async function getUserSpaces(userId: string, options: { limit?: any; page
 export async function getSpacesOfOtherUsers(
     userId: string,
     options: {
+        filter?: any;
         limit?: any;
         page?: any;
         sortBy?: any;
     }) { 
     try {
         const user = await User.findById(userId).lean();
-        const query = {
+        const query: { $or: any[], _id: any, secured?: boolean } = {
             $or: [
-                { owner: null },
+                { $and: [{ owner: { $ne: userId } }, { owner: { $ne: null } }, { owner: { $ne: undefined } }] },
                 { owner: { $ne: userId } },
-                { owner: { $ne: userId }, _id: { $not: { $in: user?.favorites } } }
-            ]
+                { owner: null }
+            ],
+            _id: {
+                $not: { $in: user?.favorites }
+            }
         };
-        const { limit, page, offset, sort } = getFetchOptions(options);
+        const { limit, page, offset, filter, sort } = getFetchOptions(options);
+
+        if(filter?.length) {
+            if(filter.includes("SECURED")) query.secured = true;
+            else if(filter.includes("UNSECURED")) query.secured = false;
+        }
 
         const textSpaces = await TextSpace
             .find(query, { password: 0 })
@@ -619,14 +633,10 @@ export async function deleteTextAndEditUserDetailsSpace(textSpaceId: string) {
 
         await User.updateMany(
             {
-                favorites: {
-                    $in: deletedTextSpace
-                }
+                favorites: { $in: textSpaceId }
             },
             {
-                $pull: {
-                    favorites: deletedTextSpace
-                }
+                $pull: { favorites: textSpaceId }
             }
         );
 
