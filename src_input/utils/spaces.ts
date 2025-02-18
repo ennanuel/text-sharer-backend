@@ -527,7 +527,7 @@ export async function getSpacesOfOtherUsers(
     }) { 
     try {
         const user = await User.findById(userId).lean();
-        const query: { $or: any[], _id: any, secured?: boolean } = {
+        const query: { $or: { [key: string]: any }[], _id: any, secured?: boolean } = {
             $or: [
                 { $and: [{ owner: { $ne: userId } }, { owner: { $ne: null } }, { owner: { $ne: undefined } }] },
                 { owner: { $ne: userId } },
@@ -540,8 +540,8 @@ export async function getSpacesOfOtherUsers(
         const { limit, page, offset, filter, sort } = getFetchOptions(options);
 
         if(filter?.length) {
-            if(filter.includes("SECURED")) query.secured = true;
-            else if(filter.includes("UNSECURED")) query.secured = false;
+            if(filter.includes("UNSECURED")) query.secured = false;
+            else if(filter.includes("SECURED")) query.secured = true;
         }
 
         const textSpaces = await TextSpace
