@@ -460,10 +460,10 @@ function getSpacesOfOtherUsers(userId, options) {
             };
             const { limit, page, offset, filter, sort } = getFetchOptions(options);
             if (filter === null || filter === void 0 ? void 0 : filter.length) {
-                if (filter.includes("SECURED"))
-                    query.secured = true;
-                else if (filter.includes("UNSECURED"))
+                if (filter.includes("UNSECURED"))
                     query.secured = false;
+                else if (filter.includes("SECURED"))
+                    query.secured = true;
             }
             const textSpaces = yield TextSpace_1.default
                 .find(query, { password: 0 })
