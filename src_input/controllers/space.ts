@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { handleError, ModifiedError } from "../utils/error";
-import { CreateTextSpace, deleteTextAndEditUserDetailsSpace, EditTextSpace, getSingleSpace, getSpacesOfOtherUsers, getUserSpaces } from "../utils/spaces";
+import { addTextSpaceToFavorites, CreateTextSpace, deleteTextAndEditUserDetailsSpace, EditTextSpace, getSingleSpace, getSpacesOfOtherUsers, getUserSpaces, removeTextSpaceFromFavorites } from "../utils/spaces";
 import { ModifiedRequest } from "../utils/auth";
 import { io } from "../server";
 
@@ -28,8 +28,8 @@ export const exploreTextSpaces: RequestHandler = async (req, res) => {
     try {
         const userId = (req as ModifiedRequest)?.auth?.id;
         const { page } = req.params;
-        const { limit = 9, sortBy } = req.query;
-        const options = { page, limit, sortBy };
+        const { limit = 9, sortBy, filter } = req.query;
+        const options = { page, limit, sortBy, filter };
 
         const result = await getSpacesOfOtherUsers(userId, options);
 
@@ -92,6 +92,40 @@ export const edit: RequestHandler = async (req, res) => {
 
         io.emit('editted', { textSpaceId, userId });
         return res.status(200).json(result);
+    } catch (error) {
+        console.error(error);
+        const { statusCode, ...result } = handleError((error as ModifiedError));
+        res.status(statusCode).json(result);
+    }
+};
+
+export const addToFavorites: RequestHandler = async (req, res) => {
+    try {
+        const userId = (req as ModifiedRequest)?.auth?.id;
+        const textSpaceId = req.params.textSpaceId;
+
+        const  { failed, ...result } = await addTextSpaceToFavorites({ userId, textSpaceId });
+
+        if(failed) throw result;
+        
+        return res.status(200).json({ message: result.message });
+    } catch (error) {
+        console.error(error);
+        const { statusCode, ...result } = handleError((error as ModifiedError));
+        res.status(statusCode).json(result);
+    }
+};
+
+export const removeFromFavorites: RequestHandler = async (req, res) => {
+    try {
+        const userId = (req as ModifiedRequest)?.auth?.id;
+        const textSpaceId = req.params.textSpaceId;
+
+        const  { failed, ...result } = await removeTextSpaceFromFavorites({ userId, textSpaceId });
+
+        if(failed) throw result;
+        
+        return res.status(200).json({ message: "Removed from favorites" });
     } catch (error) {
         console.error(error);
         const { statusCode, ...result } = handleError((error as ModifiedError));
