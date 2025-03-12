@@ -387,7 +387,7 @@ export async function getOwnedAndFavoriteSpaces(userId: string, options: { offse
     }
 
     const textSpaces = await TextSpace
-        .find(query)
+        .find(query, { password: 0 })
         .sort({ createdAt: -1 })
         .limit(options.limit)
         .skip(options.offset)
@@ -572,6 +572,53 @@ export async function getSpacesOfOtherUsers(
         }
     }
 };
+
+export async function findTextSpace(
+    searchValue: string, 
+    userId: string,
+    options: {
+        filter?: any;
+        limit?: any;
+        page?: any;
+        sortBy?: any;
+    }) {
+    try {
+        const { limit, page } = getFetchOptions(options);
+
+        const queryRegex = new RegExp(searchValue, 'i');
+        const query = {
+            $or: [
+                { title: { $regex: queryRegex } },
+                { desc: { $regex: queryRegex } },
+                { content: { $regex: queryRegex } }
+            ]
+        };
+
+        const foundTextSpaces = await TextSpace
+            .find(query, { password: 0 })
+            .limit(limit)
+            .skip(limit * page)
+            .lean();
+        const expandedTextSpaces = await expandTextSpaceOwnerDetails(foundTextSpaces as any[], userId);
+        const totalTextSpaces = await TextSpace.countDocuments(query);
+
+        return {
+            limit,
+            page,
+            failed: false,
+            value: searchValue,
+            textSpaces: expandedTextSpaces,
+            totalPages: Math.floor(totalTextSpaces / limit),
+        }
+    } catch (error) {
+        console.error(error);
+
+        return {
+            failed: true,
+            message: (error as Error).message
+        }
+    }
+}
 
 export async function getSingleSpace(textSpaceId: string, password: any, userId: string) {
     try {
