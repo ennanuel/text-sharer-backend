@@ -7,6 +7,7 @@ const route = (0, express_1.Router)();
 route.get("/user/:page", auth_1.authenticate, space_1.getUserTextSpaces);
 route.get("/explore/:page", auth_1.authenticateWithoutKickingout, space_1.exploreTextSpaces);
 route.get("/space/:textSpaceId", auth_1.authenticateWithoutKickingout, space_1.getSingleTextSpace);
+route.get("/search/:query", auth_1.authenticateWithoutKickingout, space_1.searchTextSpace);
 route.post("/create", auth_1.authenticateWithoutKickingout, space_1.create);
 route.put("/edit/:textSpaceId", auth_1.authenticate, space_1.edit);
 route.put("/add/favorite/:textSpaceId", auth_1.authenticate, space_1.addToFavorites);

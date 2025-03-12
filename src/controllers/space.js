@@ -20,7 +20,7 @@ var __rest = (this && this.__rest) || function (s, e) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteTextSpace = exports.removeFromFavorites = exports.addToFavorites = exports.edit = exports.create = exports.getSingleTextSpace = exports.exploreTextSpaces = exports.getUserTextSpaces = void 0;
+exports.deleteTextSpace = exports.removeFromFavorites = exports.addToFavorites = exports.edit = exports.create = exports.getSingleTextSpace = exports.searchTextSpace = exports.exploreTextSpaces = exports.getUserTextSpaces = void 0;
 const error_1 = require("../utils/error");
 const spaces_1 = require("../utils/spaces");
 const server_1 = require("../server");
@@ -62,6 +62,23 @@ const exploreTextSpaces = (req, res) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.exploreTextSpaces = exploreTextSpaces;
+const searchTextSpace = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    try {
+        const { query } = req.params;
+        const { limit, page, filter } = req.query;
+        const userId = (_a = req === null || req === void 0 ? void 0 : req.auth) === null || _a === void 0 ? void 0 : _a.id;
+        const _b = yield (0, spaces_1.findTextSpace)(query, userId, { limit, page, filter }), { failed } = _b, result = __rest(_b, ["failed"]);
+        if (failed)
+            throw result;
+        return res.status(200).json(result);
+    }
+    catch (error) {
+        const _c = (0, error_1.handleError)(error), { statusCode } = _c, result = __rest(_c, ["statusCode"]);
+        return res.status(statusCode).json(result);
+    }
+});
+exports.searchTextSpace = searchTextSpace;
 const getSingleTextSpace = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {

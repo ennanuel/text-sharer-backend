@@ -30,6 +30,7 @@ exports.removeTextSpaceFromFavorites = removeTextSpaceFromFavorites;
 exports.getOwnedAndFavoriteSpaces = getOwnedAndFavoriteSpaces;
 exports.getUserSpaces = getUserSpaces;
 exports.getSpacesOfOtherUsers = getSpacesOfOtherUsers;
+exports.findTextSpace = findTextSpace;
 exports.getSingleSpace = getSingleSpace;
 exports.deleteTextAndEditUserDetailsSpace = deleteTextAndEditUserDetailsSpace;
 const bcrypt_1 = __importDefault(require("bcrypt"));
@@ -362,7 +363,7 @@ function getOwnedAndFavoriteSpaces(userId, options) {
                 query.secured = false;
         }
         const textSpaces = yield TextSpace_1.default
-            .find(query)
+            .find(query, { password: 0 })
             .sort({ createdAt: -1 })
             .limit(options.limit)
             .skip(options.offset)
@@ -493,6 +494,43 @@ function getSpacesOfOtherUsers(userId, options) {
     });
 }
 ;
+function findTextSpace(searchValue, userId, options) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const { limit, page } = getFetchOptions(options);
+            const queryRegex = new RegExp(searchValue, 'i');
+            const query = {
+                $or: [
+                    { title: { $regex: queryRegex } },
+                    { desc: { $regex: queryRegex } },
+                    { content: { $regex: queryRegex } }
+                ]
+            };
+            const foundTextSpaces = yield TextSpace_1.default
+                .find(query, { password: 0 })
+                .limit(limit)
+                .skip(limit * page)
+                .lean();
+            const expandedTextSpaces = yield expandTextSpaceOwnerDetails(foundTextSpaces, userId);
+            const totalTextSpaces = yield TextSpace_1.default.countDocuments(query);
+            return {
+                limit,
+                page,
+                failed: false,
+                value: searchValue,
+                textSpaces: expandedTextSpaces,
+                totalPages: Math.floor(totalTextSpaces / limit),
+            };
+        }
+        catch (error) {
+            console.error(error);
+            return {
+                failed: true,
+                message: error.message
+            };
+        }
+    });
+}
 function getSingleSpace(textSpaceId, password, userId) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
