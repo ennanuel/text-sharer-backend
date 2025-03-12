@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { handleError, ModifiedError } from "../utils/error";
-import { addTextSpaceToFavorites, CreateTextSpace, deleteTextAndEditUserDetailsSpace, EditTextSpace, getSingleSpace, getSpacesOfOtherUsers, getUserSpaces, removeTextSpaceFromFavorites } from "../utils/spaces";
+import { addTextSpaceToFavorites, CreateTextSpace, deleteTextAndEditUserDetailsSpace, EditTextSpace, findTextSpace, getSingleSpace, getSpacesOfOtherUsers, getUserSpaces, removeTextSpaceFromFavorites } from "../utils/spaces";
 import { ModifiedRequest } from "../utils/auth";
 import { io } from "../server";
 
@@ -43,9 +43,26 @@ export const exploreTextSpaces: RequestHandler = async (req, res) => {
     }
 };
 
+export const searchTextSpace: RequestHandler = async (req, res) => {
+    try {
+        const { query } = req.params;
+        const { limit, page, filter } = req.query;
+        const userId = (req as ModifiedRequest)?.auth?.id;
+
+        const { failed, ...result } = await findTextSpace(query, userId, { limit, page, filter });
+
+        if(failed) throw result;
+
+        return res.status(200).json(result);
+    } catch (error) {
+        const { statusCode, ...result } = handleError((error as ModifiedError));
+        return res.status(statusCode).json(result);
+    }
+}
+
 export const getSingleTextSpace: RequestHandler = async (req, res) => { 
     try {
-        const userId = (req as ModifiedRequest)?.auth?.id
+        const userId = (req as ModifiedRequest)?.auth?.id;
         const { textSpaceId } = req.params;
         const { p = "" } = req.query;
         const { failed, textSpace, ...result } = await getSingleSpace(textSpaceId, p, userId);
