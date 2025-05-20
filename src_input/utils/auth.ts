@@ -34,7 +34,8 @@ export const authenticateWithoutKickingout: RequestHandler = async (req, res, ne
     try {
         const userToken = req.cookies.userToken;
         if (userToken) {
-            const tokenIsInvalid = (await InvalidToken.countDocuments({ token: userToken })) > 0;
+            const invalidTokensFound = await InvalidToken.countDocuments({ token: userToken });
+            const tokenIsInvalid = invalidTokensFound > 0;
             if (!tokenIsInvalid) {
                     jwt.verify(userToken, String(process.env.JWT_SECRET_KEY), (error: any, result: any) => {
                     if (error) throw error;
@@ -57,7 +58,7 @@ export const checkToken: RequestHandler = async (req, res) => {
 
 function createUserToken(user: { _id: string; isAdmin?: boolean; }): { token: string; cookieOptions: CookieOptions; } {
     const token = jwt.sign({ id: user._id, isAdmin: Boolean(user?.isAdmin) }, String(process.env.JWT_SECRET_KEY), { expiresIn: MAX_AGE });
-    const cookieOptions: CookieOptions = { httpOnly: true, secure: false, sameSite: 'lax', maxAge: MAX_AGE * 1000};
+    const cookieOptions: CookieOptions = { httpOnly: true, secure: false, sameSite: 'strict', maxAge: MAX_AGE * 1000};
     return { token, cookieOptions };
 };
 
