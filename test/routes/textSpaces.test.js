@@ -83,6 +83,7 @@ describe("Tests get Text Spaces route for a user", () => {
                 })
             })
         }));
+        TextSpace.countDocuments.mockImplementation((userId) => jest.fn().mockResolvedValue(1));
         User.findById.mockImplementation((userId) => ({
             lean: jest.fn().mockResolvedValue(MOCK_USERS[0])
         }));
@@ -99,7 +100,7 @@ describe("Tests get Text Spaces route for a user", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/user/user_id/0")
+            .get("/spaces/user/0")
             .set("Cookie", ["userToken=the_user_token"])
             .set("Accept", "application/json")
             .set("Content-Type", "application/json")
@@ -123,7 +124,9 @@ describe("Tests get Text Spaces route for a user", () => {
                     })
                 })
             })
-        }));
+        }));        
+        TextSpace.countDocuments.mockImplementation((userId) => jest.fn().mockResolvedValue(1));
+
         User.findById.mockImplementation((userId) => ({
             lean: jest.fn().mockResolvedValue(MOCK_USERS[0])
         }));
@@ -140,7 +143,7 @@ describe("Tests get Text Spaces route for a user", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/user/user_id/1?limit=20")
+            .get("/spaces/user/1?limit=20")
             .set("Cookie", ["userToken=the_user_token"])
             .set("Accept", "application/json")
             .set("Content-Type", "application/json")
@@ -151,6 +154,7 @@ describe("Tests get Text Spaces route for a user", () => {
             page: 1,
             filter: undefined,
             limit: 20,
+            totalPages: 1,
             textSpaces: RESULT
         })
     })
@@ -166,6 +170,7 @@ describe("Tests get Text Spaces route for a user", () => {
                 })
             })
         }));
+        TextSpace.countDocuments.mockImplementation((userId) => jest.fn().mockResolvedValue(1));
         User.findById.mockImplementation((userId) => ({
             lean: jest.fn().mockResolvedValue(MOCK_USERS[0])
         }));
@@ -182,7 +187,7 @@ describe("Tests get Text Spaces route for a user", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/user/user_id/1?limit=20&filter=owned")
+            .get("/spaces/user/1?limit=20&filter=owned")
             .set("Cookie", ["userToken=the_user_token"])
             .set("Accept", "application/json")
             .set("Content-Type", "application/json")
@@ -193,6 +198,7 @@ describe("Tests get Text Spaces route for a user", () => {
             page: 1,
             limit: 20,
             filter: "owned",
+            totalPages: 1,
             textSpaces: RESULT
         });
     })
@@ -210,6 +216,7 @@ describe("Tests explore Text Spaces route for a user", () => {
                 })
             })
         }));
+        TextSpace.countDocuments.mockImplementation((query) => jest.fn().mockResolvedValue(1));
         User.findById.mockImplementation((userId) => ({
             lean: jest.fn().mockResolvedValue(MOCK_USERS[0])
         }));
@@ -226,7 +233,7 @@ describe("Tests explore Text Spaces route for a user", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/explore/0/user_id")
+            .get("/spaces/explore/0")
             .set("Cookie", ["userToken=the_user_token"])
             .set("Accept", "application/json")
             .set("Content-Type", "application/json")
@@ -237,6 +244,7 @@ describe("Tests explore Text Spaces route for a user", () => {
             sortedBy: undefined,
             page: 0,
             limit: 12,
+            totalPages: 1,
             textSpaces: RESULT
         })
     });
@@ -251,6 +259,7 @@ describe("Tests explore Text Spaces route for a user", () => {
                 })
             })
         }));
+        TextSpace.countDocuments.mockImplementation((query) => jest.fn().mockResolvedValue(1));
         User.findById.mockImplementation((userId) => ({
             lean: jest.fn().mockResolvedValue(MOCK_USERS[0])
         }));
@@ -267,7 +276,7 @@ describe("Tests explore Text Spaces route for a user", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/explore/1/user_id?limit=20")
+            .get("/spaces/explore/1?limit=20")
             .set("Cookie", ["userToken=the_user_token"])
             .set("Accept", "application/json")
             .set("Content-Type", "application/json");
@@ -278,6 +287,7 @@ describe("Tests explore Text Spaces route for a user", () => {
             page: 1,
             sortedBy: undefined,
             limit: 20,
+            totalPages: 1,
             textSpaces: RESULT
         })
     })
@@ -293,6 +303,8 @@ describe("Tests explore Text Spaces route for a user", () => {
                 })
             })
         }));
+        TextSpace.countDocuments.mockImplementation((query) => jest.fn().mockResolvedValue(1));
+
         User.findById.mockImplementation((userId) => ({
             lean: jest.fn().mockResolvedValue(MOCK_USERS[0])
         }));
@@ -309,7 +321,7 @@ describe("Tests explore Text Spaces route for a user", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/explore/1/user_id?limit=20&sortBy=popularity")
+            .get("/spaces/explore/1?limit=20&sortBy=popularity")
             .set("Cookie", ["userToken=the_user_token"])
             .set("Accept", "application/json")
             .set("Content-Type", "application/json")
@@ -320,6 +332,7 @@ describe("Tests explore Text Spaces route for a user", () => {
             page: 1,
             limit: 20,
             sortedBy: "popularity",
+            totalPages: 1,
             textSpaces: RESULT
         });
     })
@@ -340,7 +353,7 @@ describe("Tests get single Text Space route for unsecured Text Space", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/space/unsecured/space_id")
+            .get("/space/space_id")
             .set("Content-Type", "application/json")
             .set("Accept", "application/json");
         
@@ -362,7 +375,7 @@ describe("Tests get single Text Space route for unsecured Text Space", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/space/unsecured/space_id")
+            .get("/space/space_id")
             .set("Content-Type", "application/json")
             .set("Accept", "application/json");
         
@@ -384,7 +397,7 @@ describe("Tests get single Text Space route for unsecured Text Space", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/space/unsecured/space_id")
+            .get("/space/space_id")
             .set("Content-Type", "application/json")
             .set("Accept", "application/json");
         
@@ -401,7 +414,7 @@ describe("Tests get single Text Space route for secured Text Space", () => {
     it("Successfully returns Text space that was found", async () => {
         jest.mock("../../src/utils/user");
 
-        userUtils.comparePasswords = jest.fn((hashedPassword, password) => jest.fn().mockResolvedValue(true)());
+        userUtils.comparePasswords = jest.fn((password, hashedPassword) => jest.fn().mockResolvedValue(true)());
 
         TextSpace.findOne.mockImplementation((filters) => ({
             lean: jest.fn().mockResolvedValue(MOCK_TEXT_SPACES[0])
@@ -414,7 +427,7 @@ describe("Tests get single Text Space route for secured Text Space", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/space/secured/space_id?p=text_space_password")
+            .get("/space/space_id?p=text_space_password")
             .set("Content-Type", "application/json")
             .set("Accept", "application/json");
         
@@ -439,7 +452,7 @@ describe("Tests get single Text Space route for secured Text Space", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/space/secured/space_id")
+            .get("/space/space_id")
             .set("Content-Type", "application/json")
             .set("Accept", "application/json");
         
@@ -464,7 +477,7 @@ describe("Tests get single Text Space route for secured Text Space", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/space/secured/space_id?p=text_space_password")
+            .get("/space/space_id?p=text_space_password")
             .set("Content-Type", "application/json")
             .set("Accept", "application/json");
         
@@ -489,7 +502,7 @@ describe("Tests get single Text Space route for secured Text Space", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/space/secured/space_id?p=text_space_password")
+            .get("/space/space_id?p=text_space_password")
             .set("Content-Type", "application/json")
             .set("Accept", "application/json");
         
@@ -511,7 +524,7 @@ describe("Tests get single Text Space route for secured Text Space", () => {
 
         const response = await request
             .agent(app)
-            .get("/spaces/space/secured/space_id?p=text_space_password")
+            .get("/space/space_id?p=text_space_password")
             .set("Content-Type", "application/json")
             .set("Accept", "application/json");
         
