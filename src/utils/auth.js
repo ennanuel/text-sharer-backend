@@ -69,7 +69,7 @@ const checkToken = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 exports.checkToken = checkToken;
 function createUserToken(user) {
     const token = jsonwebtoken_1.default.sign({ id: user._id, isAdmin: Boolean(user === null || user === void 0 ? void 0 : user.isAdmin) }, String(process.env.JWT_SECRET_KEY), { expiresIn: MAX_AGE });
-    const cookieOptions = { httpOnly: true, secure: false, sameSite: 'strict', maxAge: MAX_AGE * 1000 };
+    const cookieOptions = { httpOnly: true, secure: true, sameSite: 'strict', maxAge: MAX_AGE * 1000 };
     return { token, cookieOptions };
 }
 ;
